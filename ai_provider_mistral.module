@@ -1,0 +1,79 @@
+<?php
+
+/**
+ * @file
+ * Mistral AI provider for AI core.
+ */
+
+/**
+ * Implements hook_autoload_info().
+ */
+function ai_provider_mistral_autoload_info() {
+  return [
+    'AIMistralAdapter' => 'includes/AIMistralAdapter.php',
+  ];
+}
+
+/**
+ * Implements hook_ai_provider_info().
+ */
+function ai_provider_mistral_ai_provider_info() {
+  return [
+    'mistral' => [
+      'label' => t('Mistral AI'),
+      'description' => t('Mistral AI chat, vision, embedding, moderation and audio models via api.mistral.ai.'),
+      'key_label' => t('Mistral API Key'),
+      'class' => 'AIMistralAdapter',
+      'website' => 'https://mistral.ai/',
+      'key_url' => 'https://console.mistral.ai/api-keys',
+      'models_url' => 'https://docs.mistral.ai/getting-started/models/models_overview/',
+    ],
+  ];
+}
+
+/**
+ * Implements hook_ai_tools().
+ */
+function ai_provider_mistral_ai_tools() {
+  module_load_include('inc', 'ai_provider_mistral', 'includes/ocr.tools');
+  return ai_provider_mistral_ocr_tool_definitions();
+}
+
+/**
+ * Resolve the configured Mistral API key via the Key module.
+ *
+ * @return string
+ *   The key value, or an empty string when none is configured.
+ */
+function ai_provider_mistral_get_api_key() {
+  $providers = config_get('ai.settings', 'providers') ?: [];
+  $key_name = !empty($providers['mistral']['api_key']) ? $providers['mistral']['api_key'] : '';
+  if ($key_name === '' || !function_exists('key_get_key_value')) {
+    return '';
+  }
+
+  return (string) key_get_key_value($key_name);
+}
+
+/**
+ * Build a Mistral adapter for provider-specific calls such as OCR.
+ *
+ * The shared AIApi router only exposes AIProviderClient methods, and OCR is
+ * not one of them, so callers need the adapter itself.
+ *
+ * @return AIMistralAdapter|null
+ *   The adapter, or NULL when no API key is configured.
+ */
+function ai_provider_mistral_get_adapter() {
+  $api_key = ai_provider_mistral_get_api_key();
+  if ($api_key === '') {
+    return NULL;
+  }
+
+  module_load_include('php', 'ai_provider_mistral', 'includes/AIMistralAdapter');
+  if (!class_exists('AIMistralAdapter')) {
+    return NULL;
+  }
+
+  return new AIMistralAdapter($api_key);
+}
